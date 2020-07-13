@@ -65,8 +65,7 @@ type ConnPool struct {
 
 	dialErrorsNum uint32 // atomic
 
-	lastDialErrorMu sync.RWMutex
-	lastDialError   error
+	lastDialError atomic.Value
 
 	queue chan struct{}
 
@@ -202,15 +201,11 @@ func (p *ConnPool) tryDial() {
 }
 
 func (p *ConnPool) setLastDialError(err error) {
-	p.lastDialErrorMu.Lock()
-	p.lastDialError = err
-	p.lastDialErrorMu.Unlock()
+	p.lastDialError.Store(err)
 }
 
 func (p *ConnPool) getLastDialError() error {
-	p.lastDialErrorMu.RLock()
-	err := p.lastDialError
-	p.lastDialErrorMu.RUnlock()
+	err, _ := p.lastDialError.Load().(error)
 	return err
 }
 
