@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v7/internal"
@@ -2003,8 +2004,9 @@ func commandInfoParser(rd *proto.Reader, n int64) (interface{}, error) {
 type cmdsInfoCache struct {
 	fn func() (map[string]*CommandInfo, error)
 
-	once internal.Once
+	once sync.Once
 	cmds map[string]*CommandInfo
+	err  error
 }
 
 func newCmdsInfoCache(fn func() (map[string]*CommandInfo, error)) *cmdsInfoCache {
@@ -2014,10 +2016,11 @@ func newCmdsInfoCache(fn func() (map[string]*CommandInfo, error)) *cmdsInfoCache
 }
 
 func (c *cmdsInfoCache) Get() (map[string]*CommandInfo, error) {
-	err := c.once.Do(func() error {
+	c.once.Do(func() {
 		cmds, err := c.fn()
 		if err != nil {
-			return err
+			c.err = err
+			return
 		}
 
 		// Extensions have cmd names in upper case. Convert them to lower case.
@@ -2029,7 +2032,6 @@ func (c *cmdsInfoCache) Get() (map[string]*CommandInfo, error) {
 		}
 
 		c.cmds = cmds
-		return nil
 	})
-	return c.cmds, err
+	return c.cmds, c.err
 }
