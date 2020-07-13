@@ -60,6 +60,10 @@ type Options struct {
 	IdleCheckFrequency time.Duration
 }
 
+type lastDialErrorWrap struct {
+	err error
+}
+
 type ConnPool struct {
 	opt *Options
 
@@ -201,12 +205,15 @@ func (p *ConnPool) tryDial() {
 }
 
 func (p *ConnPool) setLastDialError(err error) {
-	p.lastDialError.Store(err)
+	p.lastDialError.Store(&lastDialErrorWrap{err: err})
 }
 
 func (p *ConnPool) getLastDialError() error {
-	err, _ := p.lastDialError.Load().(error)
-	return err
+	err, _ := p.lastDialError.Load().(*lastDialErrorWrap)
+	if err != nil {
+		return err.err
+	}
+	return nil
 }
 
 // Get returns existed connection from the pool or creates a new one.
